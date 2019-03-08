@@ -38,13 +38,15 @@ def scale(X_train, X_test):
 def build_features(train_df, test_df, features, scale_features = []):
     X_train_a = []
     X_test_a = []
+    f_names = []
     for f in features:
-        X_train_f, X_test_f = f(train_df, test_df)
+        X_train_f, X_test_f,f_name = f(train_df, test_df)
         if f in scale_features:
             X_train_f, X_test_f = scale(X_train_f, X_test_f)
         X_train_a.append(X_train_f)
         X_test_a.append(X_test_f)
-    return sparse.hstack(X_train_a), sparse.hstack(X_test_a)
+        f_names.append(f_name)
+    return sparse.hstack(X_train_a), sparse.hstack(X_test_a), np.hstack(f_names)
 
 
 def cross_validate(X_train, y_train, C=1):

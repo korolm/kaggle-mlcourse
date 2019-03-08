@@ -1,7 +1,28 @@
 from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
+import pickle
+from sklearn.feature_extraction.text import TfidfVectorizer
+import re
+
+from joblib import Memory
+
+cachedir = 'cache/'
+memory = Memory(cachedir, verbose=0)
+
+path_to_site_dict = 'data/site_dic.pkl'
+
+
+def load_site_dict():
+    with open(path_to_site_dict, 'rb') as f:
+        site2id = pickle.load(f)
+    id2site = {v: k for (k, v) in site2id.items()}
+    # we treat site with id 0 as "unknown"
+    id2site[0] = 'unknown'
+    return id2site
+
 
 sites = ['site%s' % i for i in range(1, 11)]
+id2site = load_site_dict()
 
 
 def transform_to_txt_format(train_df, test_df):
@@ -17,6 +38,7 @@ def transform_to_txt_format(train_df, test_df):
     return train_file, test_file
 
 
+@memory.cache
 def f_sites(train_df, test_df, ngram_range=(1, 3)):
     train_file, test_file = transform_to_txt_format(train_df, test_df)
     cv = CountVectorizer(ngram_range=ngram_range, max_features=50000)
@@ -24,7 +46,26 @@ def f_sites(train_df, test_df, ngram_range=(1, 3)):
         X_train = cv.fit_transform(inp_train_file)
     with open(test_file) as inp_test_file:
         X_test = cv.transform(inp_test_file)
-    return X_train, X_test
+    return X_train, X_test, cv.get_feature_names()
+
+
+@memory.cache
+def f_tfidf_sites(train_df, test_df, ngram_range=(1, 5), sub=False, max_features = 50000):
+    train_sessions = train_df[sites].fillna(0).astype('int').apply(lambda row:
+                                                                   ' '.join([id2site[i] for i in row]), axis=1)
+
+    test_sessions = test_df[sites].fillna(0).astype('int').apply(lambda row:
+                                                                 ' '.join([id2site[i] for i in row]), axis=1)
+    if sub:
+        train_sessions = train_sessions.apply(lambda site: re.sub("^\S*?\.*?www\S*?\.", '', site)).tolist()
+        test_sessions = test_sessions.apply(lambda site: re.sub("^\S*?\.*?www\S*?\.", '', site)).tolist()
+
+    vectorizer = TfidfVectorizer(ngram_range=ngram_range,
+                                 max_features=max_features,
+                                 tokenizer=lambda s: s.split())
+    X_train = vectorizer.fit_transform(train_sessions)
+    X_test = vectorizer.transform(test_sessions)
+    return X_train, X_test, vectorizer.get_feature_names()
 
 
 def count_not_zeros(x):
@@ -38,4 +79,4 @@ unique_sites = lambda df: np.array([count_not_zeros(x) for x in df[sites].values
 
 
 def f_unique(traim_df, test_df):
-    return unique_sites(traim_df), unique_sites(test_df)
+    return unique_sites(traim_df), unique_sites(test_df), 'unique'
