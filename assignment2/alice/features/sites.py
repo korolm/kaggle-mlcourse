@@ -49,13 +49,14 @@ def f_sites(train_df, test_df, ngram_range=(1, 3)):
     return X_train, X_test, cv.get_feature_names()
 
 
+def join_row(row):
+    return ' '.join([id2site[i] for i in row])
+
 @memory.cache
 def f_tfidf_sites(train_df, test_df, ngram_range=(1, 5), sub=False, max_features = 50000):
-    train_sessions = train_df[sites].fillna(0).astype('int').apply(lambda row:
-                                                                   ' '.join([id2site[i] for i in row]), axis=1)
+    train_sessions = train_df[sites].fillna(0).astype('int').apply(join_row, axis=1)
 
-    test_sessions = test_df[sites].fillna(0).astype('int').apply(lambda row:
-                                                                 ' '.join([id2site[i] for i in row]), axis=1)
+    test_sessions = test_df[sites].fillna(0).astype('int').apply(join_row, axis=1)
     if sub:
         train_sessions = train_sessions.apply(lambda site: re.sub("^\S*?\.*?www\S*?\.", '', site)).tolist()
         test_sessions = test_sessions.apply(lambda site: re.sub("^\S*?\.*?www\S*?\.", '', site)).tolist()
@@ -66,6 +67,27 @@ def f_tfidf_sites(train_df, test_df, ngram_range=(1, 5), sub=False, max_features
     X_train = vectorizer.fit_transform(train_sessions)
     X_test = vectorizer.transform(test_sessions)
     return X_train, X_test, vectorizer.get_feature_names()
+
+
+def time_sites(train_df, test_df):
+    time_diff = ['time_diff_%s' % i for i in range(1, 9)]
+
+    def est_session_lenght(s):
+        if s <= 5:
+            return 'small'
+        if 6 <= s and s <= 30:
+            return 'medium'
+        if 31 <= s and s <= 90:
+            return 'large'
+        if 91 <= s:
+            return 'extra-large'
+
+    for t in range(1, 10):
+        train_df['time_diff_' + str(t)] = (
+                    (train_df['time' + str(t + 1)] - train_df['time' + str(t)]) / np.timedelta64(1, 's')).apply(
+            est_session_lenght)
+
+    train_df[time_diff].head()
 
 
 def count_not_zeros(x):

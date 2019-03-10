@@ -20,20 +20,49 @@ duration = lambda df: ((df[times].max(axis=1) - df[times].min(axis=1)).astype('t
 rp = lambda df: df.values.reshape(-1, 1)
 
 
+def divide(a, b):
+    return (a.flatten() / b.flatten()).reshape(-1, 1)
+
+def multiply(a, b):
+    return (a.flatten() * b.flatten()).reshape(-1, 1)
+
 @memory.cache
 def f_duration(train_df, test_df):
     return rp(duration(train_df)), rp(duration(test_df)), ['duration']
 
 
 @memory.cache
+def f_duration_pow_2(train_df, test_df):
+    f_sec_tr, f_sec_test, f_name_1 = f_duration(train_df, test_df)
+    return multiply(f_sec_tr, f_sec_tr), multiply(f_sec_test, f_sec_test), ['duration_pow_2']
+
+
+@memory.cache
+def f_year_month(train_df, test_df):
+    return (year_month(train_df)), (year_month(test_df)), ['year_month']
+
+
+@memory.cache
+def f_year_month_pow_2(train_df, test_df):
+    f_sec_tr, f_sec_test, f_name_1 = f_year_month(train_df, test_df)
+    return multiply(f_sec_tr, f_sec_tr), multiply(f_sec_test, f_sec_test), ['year_month_pow_2']
+
+
+
+@memory.cache
 def f_seconds_per_site(train_df, test_df):
-    def divide(a, b):
-        return (a.flatten() / b.flatten()).reshape(-1, 1)
 
     f_sec_tr, f_sec_test, f_name_1 = f_duration(train_df, test_df)
     f_uni_tr, f_uni_test, f_name_1 = f_unique(train_df, test_df)
 
     return divide(f_sec_tr, f_uni_tr), divide(f_sec_test, f_uni_test), ['seconds_per_site']
+
+
+@memory.cache
+def f_seconds_per_site_pow_2(train_df, test_df):
+    f_sec_tr, f_sec_test, f_name_1 = f_seconds_per_site(train_df, test_df)
+    return multiply(f_sec_tr, f_sec_tr), multiply(f_sec_test, f_sec_test), ['seconds_per_site_pow_2']
+
 
 
 @memory.cache
@@ -49,11 +78,6 @@ def f_weekday(train_df, test_df):
 @memory.cache
 def f_month(train_df, test_df):
     return rp(month(train_df)), rp(month(test_df)), ['month']
-
-
-@memory.cache
-def f_year_month(train_df, test_df):
-    return (year_month(train_df)), (year_month(test_df)), ['year_month']
 
 
 @memory.cache
@@ -99,3 +123,8 @@ def f_end_evening(train_df, test_df):
 @memory.cache
 def f_end_night(train_df, test_df):
     return night(end_hour(train_df)), night(end_hour(test_df)), ['end_night']
+
+
+def f_new_feats(train_df, test_df):
+    train_df[sits]
+    return data_frame

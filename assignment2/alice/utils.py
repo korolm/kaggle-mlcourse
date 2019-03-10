@@ -4,6 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import TimeSeriesSplit, cross_val_score
 from scipy import sparse
 from sklearn.preprocessing import StandardScaler
+from assignment2.alice.sdg import *
 
 times = ['time%s' % i for i in range(1, 11)]
 
@@ -49,7 +50,8 @@ def build_features(train_df, test_df, features, scale_features = []):
     return sparse.hstack(X_train_a), sparse.hstack(X_test_a), np.hstack(f_names)
 
 
-def cross_validate(X_train, y_train, C=1):
+def cross_validate(X_train, y_train, kwargs, C=2.85):
+    #est = create_est(kwargs)
     est = LogisticRegression(C=C, random_state=17, solver='liblinear')
     time_split = TimeSeriesSplit(n_splits=10)
     cv_scores = cross_val_score(est, X_train, y_train, cv=time_split,
