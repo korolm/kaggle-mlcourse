@@ -1,9 +1,11 @@
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import TimeSeriesSplit, cross_val_score
+from sklearn.model_selection import TimeSeriesSplit, cross_val_score, train_test_split
 from scipy import sparse
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_auc_score
+from sklearn.base import clone
 from assignment2.alice.sdg import *
 
 times = ['time%s' % i for i in range(1, 11)]
@@ -36,27 +38,56 @@ def scale(X_train, X_test):
     return X_train_s, X_test_s
 
 
-def build_features(train_df, test_df, features, scale_features = []):
+def wrap_f(f):
+    def split_train_and_test(data, train_size):
+        return data.tocsc()[:train_size], data.tocsc()[train_size:]
+
+    def concat_train_and_test(tr, tst):
+        return pd.concat([tr, tst])
+
+    def wrapper(t, s, f):
+        train_size = t.shape[0]
+        data = concat_train_and_test(t, s)
+        return split_train_and_test(f(data), train_size)
+
+    return lambda tr, tst: wrapper(tr, tst, f)
+
+
+def build_features(train_df, test_df, features, scale_features=[]):
     X_train_a = []
     X_test_a = []
     f_names = []
     for f in features:
-        X_train_f, X_test_f,f_name = f(train_df, test_df)
+        res = f(train_df, test_df)
+        X_train_f = res[0]
+        X_test_f = res[1]
         if f in scale_features:
             X_train_f, X_test_f = scale(X_train_f, X_test_f)
         X_train_a.append(X_train_f)
         X_test_a.append(X_test_f)
-        f_names.append(f_name)
-    return sparse.hstack(X_train_a), sparse.hstack(X_test_a), np.hstack(f_names)
+        print(X_train_f.shape, X_test_f.shape)
+        # f_names.append(f_name)
+    return sparse.hstack(X_train_a), sparse.hstack(X_test_a)
 
 
-def cross_validate(X_train, y_train, kwargs, C=2.85):
-    #est = create_est(kwargs)
-    est = LogisticRegression(C=C, random_state=17, solver='liblinear')
+def cross_validate(est, X_train, y_train):
     time_split = TimeSeriesSplit(n_splits=10)
     cv_scores = cross_val_score(est, X_train, y_train, cv=time_split,
-                                scoring='roc_auc', n_jobs=1)  # hangs with n_jobs > 1, and locally this runs much faster
-    return cv_scores.mean(), est
+                                scoring='roc_auc', n_jobs=-1)  # hangs with n_jobs > 1, and locally this runs much faster
+    return cv_scores
+
+
+def score_model(model, X, y, train_size=0.7, random_states=[1, 13, 42]):
+    result = []
+
+    for rs in random_states:
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, train_size=train_size, stratify=y, random_state=rs)
+        m = clone(model, safe=True)
+        m.fit(X_train, y_train)
+        valid_score = m.predict_proba(X_valid)
+        result.append(roc_auc_score(y_valid, valid_score[:, 1:]))
+
+    return result
 
 
 def make_prediction(est, X_train, y_train, X_test):
